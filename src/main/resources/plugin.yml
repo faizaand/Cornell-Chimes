@@ -1,0 +1,7 @@
+name: Cornell-Chimes
+version: @version@
+main: dev.faizaan.cornellchimes.CornellChimes
+api-version: 1.16
+authors: [ Faizaan ]
+description: In-game Cornell Chimes.
+website: https://faizaan.dev
