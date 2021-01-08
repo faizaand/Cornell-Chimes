@@ -21,12 +21,14 @@ public class AudioManager {
 
     private final Map<String, Track> tracks;
     private final LinkedList<Track> trackList;
+    private final Set<UUID> acceptedPlayers;
     private final AtomicInteger cyclePosition = new AtomicInteger(0);
     private Task autoPlayer = null;
 
     public AudioManager() {
         this.tracks = new HashMap<>();
         this.trackList = new LinkedList<>();
+        this.acceptedPlayers = new HashSet<>();
     }
 
     /**
@@ -54,7 +56,12 @@ public class AudioManager {
      */
     public void playTrack(Track track, Player target) {
         Validate.notNull(track);
-        Validate.notNull(track);
+        Validate.notNull(target);
+        if(!this.acceptedPlayers.contains(target.getUniqueId())) {
+            target.sendMessage(CornellChimes.MESSAGE_PREFIX + ChatColor.RED + "You can't do this because you did not accept the Chimes resource pack.");
+            target.sendMessage(CornellChimes.MESSAGE_PREFIX + "Log out and log back in, and accept the resource pack, in order to hear the Chimes.");
+            return;
+        }
         target.playEffect(target.getLocation(), Effect.RECORD_PLAY, track.getRecord());
         target.sendMessage(
                 CornellChimes.MESSAGE_PREFIX + ChatColor.ITALIC + "Now playing " + ChatColor.RESET
@@ -71,25 +78,40 @@ public class AudioManager {
     public void broadcastTrack(Track track, World world) {
         Validate.notNull(track);
         Validate.notNull(world);
-        world.getPlayers().forEach(p -> playTrack(track, p));
+        world.getPlayers().stream()
+                .filter(p -> this.acceptedPlayers.contains(p.getUniqueId()))
+                .forEach(p -> playTrack(track, p));
+    }
+
+    /**
+     * Mark a player as eligible to hear the chimes, which usually happens once they
+     * accept the Chimes resource pack, which contains the audio files.
+     *
+     * @param player The player. Must not be null.
+     */
+    public void acceptPlayer(Player player) {
+        Validate.notNull(player);
+        this.acceptedPlayers.add(player.getUniqueId());
     }
 
     /**
      * Starts cycling through each track indefinitely, playing one per every number of minutes specified.
-     * The trask will be canceled when the AudioManager is cleaned up.
+     * The trask will be canceled when the AudioManager is cleaned up. The first play will be 5 minutes
+     * after this method is called.
      *
-     * @param cycleWorld the world to play the tracks in.
+     * @param cycleWorld       the world to play the tracks in.
      * @param frequencyMinutes the number of minutes to wait between each song.
      * @see AudioManager#cleanUp()
      */
     public void cycleTracks(World cycleWorld, int frequencyMinutes) {
+        if (this.autoPlayer != null) return;
         this.autoPlayer = Schedulers.builder()
                 .sync()
-                .after(1, TimeUnit.MINUTES)
+                .after(5, TimeUnit.MINUTES)
                 .every(frequencyMinutes, TimeUnit.MINUTES)
                 .run(() -> {
                     int trackNum = cyclePosition.getAndIncrement();
-                    if(trackNum + 1 == tracks.size()) {
+                    if (trackNum + 1 == tracks.size()) {
                         cyclePosition.set(0);
                     }
                     broadcastTrack(trackList.get(trackNum), cycleWorld);
@@ -100,7 +122,10 @@ public class AudioManager {
      * Stops the track cycle if it's playing, and clears the track lists.
      */
     public void cleanUp() {
-        if(this.autoPlayer != null) this.autoPlayer.close();
+        if (this.autoPlayer != null) {
+            this.autoPlayer.close();
+            this.autoPlayer = null;
+        }
         tracks.clear();
         trackList.clear();
     }

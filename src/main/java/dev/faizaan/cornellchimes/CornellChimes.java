@@ -1,11 +1,15 @@
 package dev.faizaan.cornellchimes;
 
+import me.lucko.helper.Events;
 import me.lucko.helper.plugin.ExtendedJavaPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
 
@@ -16,13 +20,15 @@ public final class CornellChimes extends ExtendedJavaPlugin {
     AudioManager audioManager;
     int frequencyMins;
     World cycleWorld;
+    String packUrl;
+    byte[] packHash;
 
     @Override
     public void enable() {
         this.audioManager = new AudioManager();
         loadConfig(true);
         new ChimesCommand().create(this);
-
+        this.enforceResourcePack();
         this.audioManager.cycleTracks(cycleWorld, frequencyMins);
 
         log("Enabled. Bingalee dingalee shall sound.");
@@ -35,18 +41,21 @@ public final class CornellChimes extends ExtendedJavaPlugin {
     }
 
     private void loadConfig(boolean firstTime) {
-        if(firstTime) this.saveDefaultConfig();
+        if (firstTime) this.saveDefaultConfig();
         this.frequencyMins = getConfig().getInt("frequency");
 
         String cycleWorldName = Objects.requireNonNull(getConfig().getString("world"));
         this.cycleWorld = Bukkit.getWorld(cycleWorldName);
-        if(this.cycleWorld == null) {
+        if (this.cycleWorld == null) {
             this.cycleWorld = Bukkit.getWorlds().get(0);
             log("&cNo world found by name " + cycleWorldName + ". Defaulting to " + this.cycleWorld.getName() + ".");
         }
 
+        this.packUrl = Objects.requireNonNull(getConfig().getString("pack.url"));
+        this.packHash = Objects.requireNonNull(getConfig().getString("pack.hash")).getBytes(StandardCharsets.UTF_8);
+
         ConfigurationSection trackSection = getConfig().getConfigurationSection("tracks");
-        if(trackSection == null) {
+        if (trackSection == null) {
             log("&cYou must specify at least one track in the configuration file.");
             log("&cAborting...");
             getServer().getPluginManager().disablePlugin(this);
@@ -54,19 +63,30 @@ public final class CornellChimes extends ExtendedJavaPlugin {
         }
 
         Set<String> tracks = trackSection.getKeys(true);
-        for(String track : tracks) {
+        for (String track : tracks) {
             String friendlyName = trackSection.getString("tracks." + track + ".friendlyName");
             String record = trackSection.getString("tracks." + track + ".record");
-            if(friendlyName == null || record == null) {
+            if (friendlyName == null || record == null) {
                 log("Failed to load track " + track + " because the friendly name or record were missing.");
                 return;
             }
             try {
                 audioManager.registerTrack(track, friendlyName, record);
-            } catch(IllegalArgumentException e) {
+            } catch (IllegalArgumentException e) {
                 log("Failed to load track " + track + " because there is no such record as " + record + ".");
             }
         }
+    }
+
+    private void enforceResourcePack() {
+        Events.subscribe(PlayerJoinEvent.class).handler(e -> e.getPlayer().setResourcePack(this.packUrl, this.packHash));
+        Events.subscribe(PlayerResourcePackStatusEvent.class).handler(e -> {
+            if(e.getStatus() == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) audioManager.acceptPlayer(e.getPlayer());
+            else if(e.getStatus() == PlayerResourcePackStatusEvent.Status.DECLINED) {
+                e.getPlayer().sendMessage(MESSAGE_PREFIX + ChatColor.RED + "Since you declined, you won't be able to hear the Cornell Chimes.");
+                e.getPlayer().sendMessage(MESSAGE_PREFIX + "If you change your mind, you can log out and log back in to accept the pack.");
+            }
+        });
     }
 
     /**
