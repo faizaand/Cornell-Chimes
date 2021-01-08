@@ -1,0 +1,31 @@
+# ================================================ #
+#                CORNELL CHIMES                    #
+#   Copyright (C) 2021 Faizaan Datoo. MIT license  #
+# ================================================ #
+
+# The world where the automatic chimes are played.
+world: world
+
+pack:
+  url: http://cornellcraft.com/cornellchimes.zip
+  hash: f11a7fd3cce77401c1d6df310cabd7b448918ad5
+
+# Number of MINUTES to wait between playing each track.
+frequency: 30
+
+# Add all the tracks here.
+# - The record field is where you put the name of the record
+# disk that plays - for example, "blocks" or "mellohi" or "13".
+#
+# - The friendly name field is where you put the name of the
+# actual song; should be presentable to users.
+tracks:
+  almamater:
+    friendlyName: "Alma Mater"
+    record: 13
+  eveningsong:
+    friendlyName: "Evening Song"
+    record: 11
+  cornellchanges:
+    friendlyName: "Cornell Changes"
+    record: mall

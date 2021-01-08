@@ -5,3 +5,13 @@ api-version: 1.16
 authors: [ Faizaan ]
 description: In-game Cornell Chimes.
 website: https://faizaan.dev
+depend:
+  - helper
+commands:
+  chimes:
+    description: Play the beautiful Cornell chimes.
+permissions:
+  chimes.play:
+    default: true
+  chimes.admin:
+    default: op
