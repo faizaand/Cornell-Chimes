@@ -13,6 +13,9 @@ pack:
 # Number of MINUTES to wait between playing each track.
 frequency: 30
 
+# Number of MINUTES to wait before playing the first track (in the automatic cycle).
+delay: 5
+
 # Add all the tracks here.
 # - The record field is where you put the name of the record
 # disk that plays - for example, "blocks" or "mellohi" or "13".

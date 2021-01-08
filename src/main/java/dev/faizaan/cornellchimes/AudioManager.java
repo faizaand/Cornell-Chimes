@@ -57,9 +57,9 @@ public class AudioManager {
     public void playTrack(Track track, Player target) {
         Validate.notNull(track);
         Validate.notNull(target);
-        if(!this.acceptedPlayers.contains(target.getUniqueId())) {
+        if (!this.acceptedPlayers.contains(target.getUniqueId())) {
             target.sendMessage(CornellChimes.MESSAGE_PREFIX + ChatColor.RED + "You can't do this because you did not accept the Chimes resource pack.");
-            target.sendMessage(CornellChimes.MESSAGE_PREFIX + "Log out and log back in, and accept the resource pack, in order to hear the Chimes.");
+            target.sendMessage(CornellChimes.MESSAGE_PREFIX + "If you changed your mind, follow this link to learn how to enable them: " + ChatColor.GOLD + "http://s.moep.tv/rp");
             return;
         }
         target.playEffect(target.getLocation(), Effect.RECORD_PLAY, track.getRecord());
@@ -90,31 +90,42 @@ public class AudioManager {
      * @param player The player. Must not be null.
      */
     public void acceptPlayer(Player player) {
-        Validate.notNull(player);
         this.acceptedPlayers.add(player.getUniqueId());
     }
 
     /**
+     * Call this when a player leaves, so they're not accidentally accepted
+     * if they tried to remove the resource pack in the meantime.
+     *
+     * @param player The player. Must not be null.
+     */
+    public void clearPlayer(Player player) {
+        this.acceptedPlayers.remove(player.getUniqueId());
+    }
+
+    /**
      * Starts cycling through each track indefinitely, playing one per every number of minutes specified.
-     * The trask will be canceled when the AudioManager is cleaned up. The first play will be 5 minutes
-     * after this method is called.
+     * The trask will be canceled when the AudioManager is cleaned up.
      *
      * @param cycleWorld       the world to play the tracks in.
      * @param frequencyMinutes the number of minutes to wait between each song.
+     * @param delayMinutes     the number of minutes to wait before playing the first song.
      * @see AudioManager#cleanUp()
      */
-    public void cycleTracks(World cycleWorld, int frequencyMinutes) {
+    public void cycleTracks(World cycleWorld, int frequencyMinutes, int delayMinutes) {
         if (this.autoPlayer != null) return;
         this.autoPlayer = Schedulers.builder()
                 .sync()
-                .after(5, TimeUnit.MINUTES)
+                .after(delayMinutes, TimeUnit.MINUTES)
                 .every(frequencyMinutes, TimeUnit.MINUTES)
                 .run(() -> {
                     int trackNum = cyclePosition.getAndIncrement();
                     if (trackNum + 1 == tracks.size()) {
                         cyclePosition.set(0);
                     }
-                    broadcastTrack(trackList.get(trackNum), cycleWorld);
+                    Track track = trackList.get(trackNum);
+                    CornellChimes.log("Now playing &6" + track.getFriendlyName());
+                    broadcastTrack(track, cycleWorld);
                 });
     }
 

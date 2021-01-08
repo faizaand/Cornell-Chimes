@@ -7,8 +7,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 
+import javax.xml.bind.DatatypeConverter;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
@@ -19,6 +21,7 @@ public final class CornellChimes extends ExtendedJavaPlugin {
     public static final String MESSAGE_PREFIX = ChatColor.translateAlternateColorCodes('&', "&f[&3&l✦&f]&r ");
     AudioManager audioManager;
     int frequencyMins;
+    int delayMins;
     World cycleWorld;
     String packUrl;
     byte[] packHash;
@@ -29,7 +32,7 @@ public final class CornellChimes extends ExtendedJavaPlugin {
         loadConfig(true);
         new ChimesCommand().create(this);
         this.enforceResourcePack();
-        this.audioManager.cycleTracks(cycleWorld, frequencyMins);
+        this.audioManager.cycleTracks(cycleWorld, frequencyMins, delayMins);
 
         log("Enabled. Bingalee dingalee shall sound.");
     }
@@ -43,6 +46,7 @@ public final class CornellChimes extends ExtendedJavaPlugin {
     private void loadConfig(boolean firstTime) {
         if (firstTime) this.saveDefaultConfig();
         this.frequencyMins = getConfig().getInt("frequency");
+        this.delayMins = getConfig().getInt("delay");
 
         String cycleWorldName = Objects.requireNonNull(getConfig().getString("world"));
         this.cycleWorld = Bukkit.getWorld(cycleWorldName);
@@ -52,7 +56,7 @@ public final class CornellChimes extends ExtendedJavaPlugin {
         }
 
         this.packUrl = Objects.requireNonNull(getConfig().getString("pack.url"));
-        this.packHash = Objects.requireNonNull(getConfig().getString("pack.hash")).getBytes(StandardCharsets.UTF_8);
+        this.packHash = DatatypeConverter.parseHexBinary(Objects.requireNonNull(getConfig().getString("pack.hash")));
 
         ConfigurationSection trackSection = getConfig().getConfigurationSection("tracks");
         if (trackSection == null) {
@@ -62,13 +66,13 @@ public final class CornellChimes extends ExtendedJavaPlugin {
             return;
         }
 
-        Set<String> tracks = trackSection.getKeys(true);
+        Set<String> tracks = trackSection.getKeys(false);
         for (String track : tracks) {
-            String friendlyName = trackSection.getString("tracks." + track + ".friendlyName");
-            String record = trackSection.getString("tracks." + track + ".record");
+            String friendlyName = getConfig().getString("tracks." + track + ".friendlyName");
+            String record = getConfig().getString("tracks." + track + ".record");
             if (friendlyName == null || record == null) {
                 log("Failed to load track " + track + " because the friendly name or record were missing.");
-                return;
+                continue;
             }
             try {
                 audioManager.registerTrack(track, friendlyName, record);
@@ -80,11 +84,12 @@ public final class CornellChimes extends ExtendedJavaPlugin {
 
     private void enforceResourcePack() {
         Events.subscribe(PlayerJoinEvent.class).handler(e -> e.getPlayer().setResourcePack(this.packUrl, this.packHash));
+        Events.subscribe(PlayerQuitEvent.class).handler(e -> this.audioManager.clearPlayer(e.getPlayer()));
         Events.subscribe(PlayerResourcePackStatusEvent.class).handler(e -> {
             if(e.getStatus() == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) audioManager.acceptPlayer(e.getPlayer());
             else if(e.getStatus() == PlayerResourcePackStatusEvent.Status.DECLINED) {
-                e.getPlayer().sendMessage(MESSAGE_PREFIX + ChatColor.RED + "Since you declined, you won't be able to hear the Cornell Chimes.");
-                e.getPlayer().sendMessage(MESSAGE_PREFIX + "If you change your mind, you can log out and log back in to accept the pack.");
+                e.getPlayer().sendMessage(MESSAGE_PREFIX + ChatColor.RED + "Since you declined resource packs, you won't be able to hear the Cornell Chimes.");
+                e.getPlayer().sendMessage(MESSAGE_PREFIX + "If you change your mind, follow this link to learn how to enable them: " + ChatColor.GOLD + "http://s.moep.tv/rp");
             }
         });
     }
